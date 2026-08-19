@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Real-time Sea Level Tracker</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+  <nav class="navbar navbar-dark bg-dark shadow-sm">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="#">🌊 TideTracker (Live)</a>
+    </div>
+  </nav>
+
+  <div class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-md-8 text-center mb-4">
+        <h2 class="fw-bold">สถานีวัดระดับน้ำทะเล</h2>
+        
+        <div class="btn-group shadow-sm mt-3">
+          <input type="radio" class="btn-check" name="btnradio" id="btn-andaman" checked onchange="changeLocation('andaman')">
+          <label class="btn btn-outline-primary px-4" for="btn-andaman">ภูเก็ต (อันดามัน)</label>
+
+          <input type="radio" class="btn-check" name="btnradio" id="btn-gulf" onchange="changeLocation('gulf')">
+          <label class="btn btn-outline-primary px-4" for="btn-gulf">เกาะสมุย (อ่าวไทย)</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="row justify-content-center">
+      <div class="col-md-6">
+        <div class="card border-0 shadow-lg rounded-4 text-center p-4">
+          <div class="card-body">
+            <h5 class="text-muted mb-3" id="location-name">ทะเลอันดามัน (จ.ภูเก็ต)</h5>
+            <h1 class="display-1 fw-bold text-primary mb-3" id="sea-level">-- m</h1>
+            <div class="d-flex justify-content-center gap-3 mt-4">
+              <span class="badge bg-secondary p-2 fs-6" id="tide-status">กำลังดึงข้อมูล...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const locations = {
+      andaman: { name: "ทะเลอันดามัน (จ.ภูเก็ต)", lat: 7.89, lon: 98.39 },
+      gulf: { name: "อ่าวไทย (อ.เกาะสมุย)", lat: 9.51, lon: 100.01 }
+    };
+    let currentLocation = 'andaman';
+
+    function changeLocation(loc) {
+      currentLocation = loc;
+      document.getElementById('sea-level').innerText = "กำลังโหลด...";
+      document.getElementById('tide-status').className = "badge bg-secondary p-2 fs-6";
+      document.getElementById('tide-status').innerText = "กำลังดึงข้อมูล...";
+      fetchData();
+    }
+
+    async function fetchData() {
+      const loc = locations[currentLocation];
+      document.getElementById('location-name').innerText = loc.name;
+      
+      const url = `https://marine-api.open-meteo.com/v1/marine?latitude=${loc.lat}&longitude=${loc.lon}&hourly=sea_level&timezone=Asia%2FBangkok&forecast_days=1`;
+
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        const now = new Date();
+        const times = data.hourly.time;
+        const seaLevels = data.hourly.sea_level;
+        
+        let currentIndex = 0;
+        let minDiff = Infinity;
+
+        times.forEach((t, index) => {
+          const apiTime = new Date(t);
+          const diff = Math.abs(now - apiTime);
+          if (diff < minDiff) { minDiff = diff; currentIndex = index; }
+        });
+
+        const currentLevel = seaLevels[currentIndex];
+        const prevLevel = currentIndex > 0 ? seaLevels[currentIndex - 1] : currentLevel;
+
+        document.getElementById('sea-level').innerText = currentLevel.toFixed(2) + " m";
+        
+        const statusEl = document.getElementById('tide-status');
+        if (currentLevel > prevLevel) {
+          statusEl.innerHTML = "📈 น้ำกำลังขึ้น"; statusEl.className = "badge bg-danger p-2 fs-6";
+        } else {
+          statusEl.innerHTML = "📉 น้ำกำลังลง"; statusEl.className = "badge bg-success p-2 fs-6";
+        }
+      } catch (e) {
+        document.getElementById('sea-level').innerText = "Error";
+      }
+    }
+
+    fetchData();
+  </script>
+</body>
+</html>
